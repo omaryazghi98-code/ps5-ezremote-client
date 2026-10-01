@@ -274,6 +274,12 @@ int BaseClient::GetRangeToFile(const std::string &path, int fd, uint64_t size, u
     DataSink sink;
     sink.write = [&writer](const char *data, size_t len) -> bool
     {
+        if (len > writer.expected - writer.written)
+        {
+            writer.failed = true;
+            return false;
+        }
+
         size_t pos = 0;
         while (pos < len)
         {
