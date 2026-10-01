@@ -47,6 +47,7 @@ add_executable(ezremote_client.elf
   source/http/httplib.cpp
   source/server/http_server.cpp
   source/actions.cpp
+  source/direct_downloader.cpp
   source/config.cpp
   source/crypt.c
   source/dbglogger.c
@@ -113,7 +114,7 @@ target_link_libraries(ezremote_client.elf
 )
 
 set(APPDIR "ezremote-client")
-set(APP_VERSION "2.14")
+set(APP_VERSION "2.15-native")
 
 add_custom_target(package
    DEPENDS ezremote-dpi.elf
