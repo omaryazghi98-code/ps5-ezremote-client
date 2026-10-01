@@ -19,7 +19,8 @@ public:
     int Size(const std::string &path, uint64_t *size);
     int Get(const std::string &outputfile, const std::string &path, uint64_t offset=0);
     int Get(SplitFile *split_file, const std::string &path, uint64_t offset=0);
-    int GetRange(const std::string &path, void *buffer, uint64_t size, uint64_t offset);\n    int GetRangeToFile(const std::string &path, int fd, uint64_t size, uint64_t offset);
+    int GetRange(const std::string &path, void *buffer, uint64_t size, uint64_t offset);
+    int GetRangeToFile(const std::string &path, int fd, uint64_t size, uint64_t offset);
     int GetRange(const std::string &path, DataSink &sink, uint64_t size, uint64_t offset);
     int GetRange(void *fp, void *buffer, uint64_t size, uint64_t offset);
     int GetRange(void *fp, DataSink &sink, uint64_t size, uint64_t offset);
