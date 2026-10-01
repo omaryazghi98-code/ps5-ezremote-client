@@ -1262,6 +1262,8 @@ namespace HttpServer
         {
             const char *url_param;
             const char *dest_param;
+            bool use_alldebrid = false;
+            bool use_realdebrid = false;
 
             json_object *jobj = json_tokener_parse(req.body.c_str());
             if (jobj == nullptr)
@@ -1272,6 +1274,8 @@ namespace HttpServer
 
             url_param = json_object_get_string(json_object_object_get(jobj, "url"));
             dest_param = json_object_get_string(json_object_object_get(jobj, "dest"));
+            use_alldebrid = json_object_get_boolean(json_object_object_get(jobj, "use_alldebrid"));
+            use_realdebrid = json_object_get_boolean(json_object_object_get(jobj, "use_realdebrid"));
 
             if (url_param == nullptr || dest_param == nullptr)
             {
@@ -1283,7 +1287,7 @@ namespace HttpServer
             std::string url(url_param);
             std::string destination(dest_param);
 
-            FileHost *filehost = FileHost::getFileHost(url, false, false);
+            FileHost *filehost = FileHost::getFileHost(url, use_alldebrid, use_realdebrid);
             if (filehost == nullptr || !filehost->IsValidUrl())
             {
                 if (filehost != nullptr)
