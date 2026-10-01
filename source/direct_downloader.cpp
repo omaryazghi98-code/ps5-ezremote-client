@@ -91,6 +91,15 @@ namespace DirectDownloader
         if (filename.empty())
             filename = "download.bin";
 
+        // Keep URL-derived names as a single local path component.
+        for (size_t i = 0; i < filename.size(); ++i)
+        {
+            if (filename[i] == '/' || filename[i] == '\\')
+                filename[i] = '_';
+        }
+        if (filename == "." || filename == "..")
+            filename = "download.bin";
+
         return filename;
     }
 
