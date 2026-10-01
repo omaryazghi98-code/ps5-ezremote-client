@@ -1,6 +1,6 @@
 #include <fstream>
 #include <curl/curl.h>
-#include <sys/time.h>
+#include <sys/time.h>\n#include <unistd.h>\n#include <errno.h>
 #include "clients/remote_client.h"
 #include "clients/baseclient.h"
 #include "config.h"
@@ -246,6 +246,90 @@ int BaseClient::GetRange(const std::string &path, DataSink &sink, uint64_t size,
         sprintf(this->response, "%s", res.errMessage.c_str());
     }
     return 0;
+}
+
+int BaseClient::GetRangeToFile(const std::string &path, int fd, uint64_t size, uint64_t offset)
+{
+    CHTTPClient::HttpResponse res;
+    CHTTPClient::HeadersMap headers;
+
+    if (size == 0)
+        return 1;
+
+    char range_header[128];
+    sprintf(range_header, "bytes=%lu-%lu", offset, offset + size - 1);
+    headers["Range"] = range_header;
+
+    struct RangeWriter
+    {
+        int fd;
+        uint64_t offset;
+        uint64_t expected;
+        uint64_t written;
+        bool failed;
+    };
+
+    RangeWriter writer = {fd, offset, size, 0, false};
+
+    DataSink sink;
+    sink.write = [&writer](const char *data, size_t len) -> bool
+    {
+        size_t pos = 0;
+        while (pos < len)
+        {
+            ssize_t ret = pwrite(writer.fd, data + pos, len - pos,
+                                 static_cast<off_t>(writer.offset + writer.written + pos));
+            if (ret < 0)
+            {
+                if (errno == EINTR)
+                    continue;
+                writer.failed = true;
+                return false;
+            }
+            if (ret == 0)
+            {
+                writer.failed = true;
+                return false;
+            }
+            pos += static_cast<size_t>(ret);
+        }
+
+        writer.written += len;
+        if (writer.written > writer.expected)
+        {
+            writer.failed = true;
+            return false;
+        }
+        return true;
+    };
+
+    client->SetProgressFnCallback(nullptr, NothingCallback);
+    std::string encoded_url = this->host_url + CHTTPClient::EncodeUrl(GetFullPath(path));
+
+    bool request_ok = client->Get(encoded_url, headers, res,
+                                  (void*) &WriteDataSinkCallback, (void*) &sink);
+
+    if (!request_ok)
+    {
+        sprintf(this->response, "%s", res.errMessage.c_str());
+        return 0;
+    }
+
+    // A segmented request is only safe when the server explicitly honored
+    // the Range header. Never accept a full 200 response here.
+    if (res.iCode != 206)
+    {
+        sprintf(this->response, "HTTP %ld - Range not honored", res.iCode);
+        return 0;
+    }
+
+    if (writer.failed || writer.written != size)
+    {
+        sprintf(this->response, "Range wrote %lu/%lu bytes", writer.written, size);
+        return 0;
+    }
+
+    return 1;
 }
 
 int BaseClient::GetRange(const std::string &path, void *buffer, uint64_t size, uint64_t offset)
