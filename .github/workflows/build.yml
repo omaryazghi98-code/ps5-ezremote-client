@@ -1,0 +1,59 @@
+name: Build PS5 ezRemote Client
+
+on:
+  push:
+    branches:
+      - master
+      - "feat/**"
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
+
+      - name: Enable HTTPS for submodules
+        run: |
+          git config --global url."https://github.com/".insteadOf git@github.com:
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth 1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bash clang-18 lld-18 wget cmake meson pkg-config python3 python3-pyelftools unzip zip
+
+      - name: Install PS5 Payload SDK
+        run: |
+          wget -q https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip -O /tmp/ps5-payload-sdk.zip
+          sudo unzip -q -d /opt /tmp/ps5-payload-sdk.zip
+          test -d /opt/ps5-payload-sdk
+          echo "PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cmake --build build --target ezremote_client.elf -j2
+
+      - name: Package
+        run: |
+          cmake --build build --target package -j2
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5-ezremote-client-native-\${{ github.sha }}
+          path: |
+            ezremote-client.zip
+            ezremote_client.elf
+            ps5-ezremote-server/ezremote-server.elf
+            ps5-ezremote-dpi/ezremote-dpi.elf
+          if-no-files-found: warn
