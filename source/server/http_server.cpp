@@ -4,6 +4,7 @@
 #include <server/range_parser.h>
 #include "http/httplib.h"
 #include "server/http_server.h"
+#include "direct_downloader.h"
 #include "clients/smbclient.h"
 #include "clients/sftpclient.h"
 #include "clients/ftpclient.h"
