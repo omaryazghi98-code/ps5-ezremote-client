@@ -4,7 +4,15 @@ ezRemote Client is an application that allows you to connect the PS5 to remote F
 
 **NEW: As of version 2.12. You can install PS5 fpkgs.**
 
-**NEW in this fork: native direct URL downloader.**\n  - The Web UI's **Download URL** path can use a PS5-local downloader instead of the ezRemote Server transfer path.\n  - Uses 16 MiB HTTP range segments with up to 8 concurrent workers when the remote server honors Range requests.\n  - Failed segments are retried with exponential backoff.\n  - Completed segments are recorded in a small `.ezresume` sidecar, so an interrupted transfer can resume without downloading completed ranges again.\n  - Data is written directly into a preallocated `.ezpart` file on the PS5; the PC only controls the Web UI.\n  - Servers that do not honor HTTP Range fall back to a single normal download on a fresh transfer.\n\n**NEW: As of version 2.02, You can download large file in the background.**
+**NEW in this fork: native direct URL downloader.**
+  - The Web UI's **Download URL** path can use a PS5-local downloader instead of the ezRemote Server transfer path.
+  - Uses 16 MiB HTTP range segments with up to 8 concurrent workers when the remote server honors Range requests.
+  - Failed segments are retried with exponential backoff.
+  - Completed segments are recorded in a small `.ezresume` sidecar, so an interrupted transfer can resume without downloading completed ranges again.
+  - Data is written directly into a preallocated `.ezpart` file on the PS5; the PC only controls the Web UI.
+  - Servers that do not honor HTTP Range fall back to a single normal download on a fresh transfer.
+
+**NEW: As of version 2.02, You can download large file in the background.**
   - You can enable/disable background download in the Global settings
   - You can set the minimum file size where background download will use. Default is 1GB
   - In Global Settings, you can show the background download progress of all requested downloads
