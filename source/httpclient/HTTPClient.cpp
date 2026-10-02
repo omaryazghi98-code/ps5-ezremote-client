@@ -1279,9 +1279,6 @@ size_t CHTTPClient::RestHeaderCallback(void* pCurlData, size_t usBlockCount, siz
                pServerResponse->cookies[name] = value;
          }
       }
-      std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(),
-                     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-      pServerResponse->mapHeadersLowercase[lowerKey] = strValue;
    }
 
    return (usBlockCount * usBlockSize);
