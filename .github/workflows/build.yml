@@ -57,7 +57,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ps5-ezremote-client-native-\${{ github.sha }}
+          name: ps5-ezremote-client-native-${{ github.sha }}
           path: |
             ezremote-client.zip
             ezremote_client.elf
