@@ -45,6 +45,8 @@ add_executable(ezremote_client.elf
   source/filehost/pixeldrain.cpp
   source/filehost/realdebrid.cpp
   source/http/httplib.cpp
+  source/httpclient/HTTPClient.cpp
+  source/httpclient/CurlHandle.cpp
   source/server/http_server.cpp
   source/actions.cpp
   source/direct_downloader.cpp
@@ -79,7 +81,6 @@ target_link_libraries(ezremote_client.elf
   webp
   jpeg
   iconv
-  httpclient
   zstd
   z
   psl
