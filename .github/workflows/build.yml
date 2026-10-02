@@ -26,23 +26,16 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bash clang-18 lld-18 wget cmake meson pkg-config python3 python3-pyelftools unzip zip libsdl2-dev libsdl2-image-dev libpng-dev libjpeg-dev libxml2-dev libssh2-1-dev libarchive-dev libcurl4-openssl-dev libssl-dev libzstd-dev liblzma-dev libbz2-dev libsamplerate0-dev libminizip-dev
+          sudo apt-get install -y bash clang lld wget cmake meson pkg-config build-essential git unzip zip python3 python3-pyelftools
 
-      - name: Install PS5 Payload SDK
-        run: |
-          wget -q https://github.com/ps5-payload-dev/sdk/releases/latest/download/ps5-payload-sdk.zip -O /tmp/ps5-payload-sdk.zip
-          sudo unzip -q -d /opt /tmp/ps5-payload-sdk.zip
-          test -d /opt/ps5-payload-sdk
-          echo "PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk" >> "$GITHUB_ENV"
-
-      - name: Install PS5 homebrew libraries
+      - name: Install PS5 Payload SDK + homebrew libraries
         run: |
           wget -q https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/v0.40.2/ps5-payload-dev.tar.gz -O /tmp/ps5-payload-dev.tar.gz
           sudo tar -xzf /tmp/ps5-payload-dev.tar.gz -C /
-          echo "Installed PS5 SDK libraries matching lexbor:"
-          find /opt/ps5-payload-sdk/target -type f \( -name '*lexbor*' -o -path '*/include/lexbor/*' \) -print | head -200
-          echo "Installed PS5 homebrew include/lib roots:"
-          find /opt/ps5-payload-sdk/target/user/homebrew -maxdepth 3 -type d -print | head -100
+          test -d /opt/ps5-payload-sdk
+          echo "PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk" >> "$GITHUB_ENV"
+          echo "Installed PS5 SDK library files:"
+          find /opt/ps5-payload-sdk/target/user/homebrew -type f \( -name 'liblexbor*' -o -name 'libSDL2*' \) -print | head -50
 
       - name: Configure
         run: |
