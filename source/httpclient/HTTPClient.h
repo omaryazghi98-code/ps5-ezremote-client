@@ -13,7 +13,8 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cstddef>         // std::size_t
+#include <cstddef>
+#include <cstdint>         // std::size_t
 #include <cstdio>          // snprintf
 #include <cstdlib>
 #include <cstring>         // strerror, strlen, memcpy, strcpy
