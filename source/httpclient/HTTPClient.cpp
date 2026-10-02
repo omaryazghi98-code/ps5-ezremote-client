@@ -400,11 +400,13 @@ const bool CHTTPClient::GetText(const std::string& strURL,
  */
 const bool CHTTPClient::DownloadFile(void* pUserData,
                                      const std::string& strURL,
-                                     WriteFnCallback pWriteCallback,
+                                     void* pWriteCallback,
                                      long& lHTTPStatusCode)
 {
    if (strURL.empty() || pWriteCallback == nullptr)
       return false;
+
+   WriteFnCallback writeCallback = reinterpret_cast<WriteFnCallback>(pWriteCallback);
 
    if (!m_pCurlSession)
    {
@@ -418,7 +420,7 @@ const bool CHTTPClient::DownloadFile(void* pUserData,
    UpdateURL(strURL);
 
    curl_easy_setopt(m_pCurlSession, CURLOPT_HTTPGET, 1L);
-   curl_easy_setopt(m_pCurlSession, CURLOPT_WRITEFUNCTION, pWriteCallback);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_WRITEFUNCTION, writeCallback);
    curl_easy_setopt(m_pCurlSession, CURLOPT_WRITEDATA, pUserData);
 
    CURLcode res = Perform();
