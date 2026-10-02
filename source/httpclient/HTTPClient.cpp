@@ -175,6 +175,84 @@ void CHTTPClient::SetCookie(const std::string& name, const std::string& value)
       m_cookies[name] = value;
 }
 
+const bool CHTTPClient::UploadFile(const std::string& strLocalFile,
+                                      const std::string& strURL,
+                                      long& lHTTPStatusCode)
+{
+   if (strLocalFile.empty() || strURL.empty() || !m_pCurlSession)
+      return false;
+
+   FILE* fp = fopen(strLocalFile.c_str(), "rb");
+   if (fp == nullptr)
+      return false;
+
+   struct stat st{};
+   if (fstat(fileno(fp), &st) != 0)
+   {
+      fclose(fp);
+      return false;
+   }
+
+   curl_easy_reset(m_pCurlSession);
+   UpdateURL(strURL);
+
+   curl_easy_setopt(m_pCurlSession, CURLOPT_UPLOAD, 1L);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_READFUNCTION, &CHTTPClient::ReadFromFileCallback);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_READDATA, fp);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(st.st_size));
+
+   CURLcode res = Perform();
+   curl_easy_getinfo(m_pCurlSession, CURLINFO_RESPONSE_CODE, &lHTTPStatusCode);
+
+   fclose(fp);
+   return res == CURLE_OK;
+}
+
+const bool CHTTPClient::CustomRequest(const std::string& method,
+                                      const std::string& strURL,
+                                      const HeadersMap& Headers,
+                                      HttpResponse& Response)
+{
+   if (method.empty() || strURL.empty() || !m_pCurlSession)
+      return false;
+
+   if (!InitRestRequest(strURL, Headers, Response))
+      return false;
+
+   curl_easy_setopt(m_pCurlSession, CURLOPT_CUSTOMREQUEST, method.c_str());
+
+   CURLcode res = Perform();
+   return PostRestRequest(res, Response);
+}
+
+std::string CHTTPClient::DecodeUrl(const std::string& strUrl, bool decodeSlash)
+{
+   CURL* curl = curl_easy_init();
+   if (curl == nullptr)
+      return strUrl;
+
+   int outLen = 0;
+   char* decoded = curl_easy_unescape(curl, strUrl.c_str(),
+                                      static_cast<int>(strUrl.size()), &outLen);
+   if (decoded == nullptr)
+   {
+      curl_easy_cleanup(curl);
+      return strUrl;
+   }
+
+   std::string out(decoded, outLen);
+   curl_free(decoded);
+   curl_easy_cleanup(curl);
+
+   if (!decodeSlash)
+   {
+      // DecodeUrl is primarily used for WebDAV hrefs. curl_easy_unescape
+      // already leaves ordinary path separators intact.
+   }
+
+   return out;
+}
+
 
 /**
  * @brief sets the HTTP Proxy address to tunnel the operation through it
