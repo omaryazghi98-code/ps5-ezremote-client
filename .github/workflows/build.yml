@@ -35,17 +35,24 @@ jobs:
           test -d /opt/ps5-payload-sdk
           echo "PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk" >> "$GITHUB_ENV"
 
+      - name: Install PS5 homebrew libraries
+        run: |
+          wget -q https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/v0.40.2/ps5-payload-dev.tar.gz -O /tmp/ps5-payload-dev.tar.gz
+          sudo tar -xzf /tmp/ps5-payload-dev.tar.gz -C /
+          test -f /opt/ps5-payload-sdk/target/include/lexbor/html/parser.h
+          test -f /opt/ps5-payload-sdk/target/lib/liblexbor_static.a
+
       - name: Configure
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          /opt/ps5-payload-sdk/bin/prospero-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: |
-          cmake --build build --target ezremote_client.elf -j2
+          /opt/ps5-payload-sdk/bin/prospero-cmake --build build --target ezremote_client.elf -j2
 
       - name: Package
         run: |
-          cmake --build build --target package -j2
+          /opt/ps5-payload-sdk/bin/prospero-cmake --build build --target package -j2
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
