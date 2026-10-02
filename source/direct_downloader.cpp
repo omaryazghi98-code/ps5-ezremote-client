@@ -119,6 +119,11 @@ namespace DirectDownloader
         {
             *host = url.substr(0, root_pos);
             *path = url.substr(root_pos);
+
+            // URI fragments are client-side and must never be sent to the server.
+            size_t fragment = path->find('#');
+            if (fragment != std::string::npos)
+                path->resize(fragment);
         }
     }
 
