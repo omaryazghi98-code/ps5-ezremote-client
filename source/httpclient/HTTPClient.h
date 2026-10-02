@@ -113,6 +113,14 @@ public:
    void SetSocketOptFnCallback(SocketOptFnCallback fnCallback);
    void SetBufferSize(long size);
    void SetCookie(const std::string& name, const std::string& value);
+   const bool UploadFile(const std::string& strLocalFile,
+                         const std::string& strURL,
+                         long& lHTTPStatusCode);
+   const bool CustomRequest(const std::string& method,
+                            const std::string& strURL,
+                            const HeadersMap& Headers,
+                            HttpResponse& Response);
+   static std::string DecodeUrl(const std::string& strUrl, bool decodeSlash = false);
    /*inline*/ void SetProxy(const std::string& strProxy);
    inline void SetTimeout(const int& iTimeout) { m_iCurlTimeout = iTimeout; }
    inline void SetNoSignal(const bool& bNoSignal) { m_bNoSignal = bNoSignal; }
