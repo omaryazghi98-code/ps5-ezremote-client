@@ -34,8 +34,17 @@ jobs:
           sudo tar -xzf /tmp/ps5-payload-dev.tar.gz -C /
           test -d /opt/ps5-payload-sdk
           echo "PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk" >> "$GITHUB_ENV"
-          echo "Installed PS5 SDK library files:"
-          find /opt/ps5-payload-sdk/target/user/homebrew -type f \( -name 'liblexbor*' -o -name 'libSDL2*' \) -print | head -50
+          echo "Installed PS5 homebrew libraries:"
+          find /opt/ps5-payload-sdk/target/user/homebrew/lib -maxdepth 1 -type f -name '*.a' -printf '%f\n' | sort | head -80
+
+      - name: Build missing lexbor dependency
+        run: |
+          git clone --depth 1 --branch v3.0.0 https://github.com/lexbor/lexbor.git /tmp/lexbor
+          /opt/ps5-payload-sdk/bin/prospero-cmake -S /tmp/lexbor -B /tmp/lexbor-build             -DCMAKE_BUILD_TYPE=Release             -DLEXBOR_BUILD_STATIC=YES             -DLEXBOR_INSTALL_HEADERS=YES             -DLEXBOR_BUILD_SHARED=NO             -DLEXBOR_BUILD_TESTS=NO             -DLEXBOR_BUILD_TESTS_CPP=NO             -DCMAKE_INSTALL_PREFIX=/user/homebrew
+          /usr/local/bin/cmake --build /tmp/lexbor-build -j2
+          sudo env DESTDIR=/opt/ps5-payload-sdk/target /usr/local/bin/cmake --install /tmp/lexbor-build
+          test -f /opt/ps5-payload-sdk/target/user/homebrew/include/lexbor/html/parser.h
+          test -f /opt/ps5-payload-sdk/target/user/homebrew/lib/liblexbor_static.a
 
       - name: Configure
         run: |
