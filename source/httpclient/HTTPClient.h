@@ -14,7 +14,8 @@
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
-#include <cstdint>         // std::size_t
+#include <cstdint>
+#include <cctype>         // std::size_t
 #include <cstdio>          // snprintf
 #include <cstdlib>
 #include <cstring>         // strerror, strlen, memcpy, strcpy
@@ -203,6 +204,8 @@ protected:
    inline const bool InitRestRequest(const std::string& strUrl, const HeadersMap& Headers,
                                HttpResponse& Response);
    inline const bool PostRestRequest(const CURLcode ePerformCode, HttpResponse& Response);
+
+   static int SocketOptTrampoline(void* clientp, curl_socket_t curlfd, curlsocktype purpose);
 
    // Curl callbacks
    static size_t WriteInStringCallback(void* ptr, size_t size, size_t nmemb, void* data);
