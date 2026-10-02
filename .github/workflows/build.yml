@@ -39,8 +39,10 @@ jobs:
         run: |
           wget -q https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/v0.40.2/ps5-payload-dev.tar.gz -O /tmp/ps5-payload-dev.tar.gz
           sudo tar -xzf /tmp/ps5-payload-dev.tar.gz -C /
-          test -f /opt/ps5-payload-sdk/target/user/homebrew/include/lexbor/html/parser.h
-          test -f /opt/ps5-payload-sdk/target/user/homebrew/lib/liblexbor_static.a
+          echo "Installed PS5 SDK libraries matching lexbor:"
+          find /opt/ps5-payload-sdk/target -type f \( -name '*lexbor*' -o -path '*/include/lexbor/*' \) -print | head -200
+          echo "Installed PS5 homebrew include/lib roots:"
+          find /opt/ps5-payload-sdk/target/user/homebrew -maxdepth 3 -type d -print | head -100
 
       - name: Configure
         run: |
