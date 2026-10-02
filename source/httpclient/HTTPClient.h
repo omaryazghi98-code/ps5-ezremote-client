@@ -82,6 +82,8 @@ public:
       HttpResponse() : iCode(0) {}
       int iCode; // HTTP response code
       HeadersMap mapHeaders; // HTTP response headers fields
+      HeadersMap mapHeadersLowercase; // lowercase-key view for case-insensitive access
+      std::string errMessage;
       std::string strBody; // HTTP response body
    };
 
@@ -132,7 +134,9 @@ public:
                       std::string& strText,
                       long& lHTTPStatusCode);
 
-   const bool DownloadFile(void* pUserData, const std::string& strURL, WriteFnCallback pWriteCallback, long& lHTTPStatusCode);\n\n   const bool DownloadFile(const std::string& strLocalFile,
+   const bool DownloadFile(void* pUserData, const std::string& strURL, WriteFnCallback pWriteCallback, long& lHTTPStatusCode);
+
+   const bool DownloadFile(const std::string& strLocalFile,
                            const std::string& strURL,
                            long& lHTTPStatusCode);
 
@@ -150,6 +154,8 @@ public:
    // REST requests
    const bool Head(const std::string& strUrl, const HeadersMap& Headers, HttpResponse& Response);
    const bool Get(const std::string& strUrl, const HeadersMap& Headers, HttpResponse& Response);
+   const bool Get(const std::string& strUrl, const HeadersMap& Headers, HttpResponse& Response,
+                  void* pWriteCallback, void* pUserData);
    const bool Del(const std::string& strUrl, const HeadersMap& Headers, HttpResponse& Response);
    const bool Post(const std::string& strUrl, const HeadersMap& Headers,
              const std::string& strPostData, HttpResponse& Response);
@@ -158,6 +164,8 @@ public:
    const bool Put(const std::string& strUrl, const HeadersMap& Headers,
             const ByteBuffer& Data, HttpResponse& Response);
    
+   static std::string EncodeUrl(const std::string& strUrl);
+
    // SSL certs
    static const std::string& GetCertificateFile() { return s_strCertificationAuthorityFile; }
    static void SetCertificateFile(const std::string& strPath) { s_strCertificationAuthorityFile = strPath; }
@@ -233,7 +241,11 @@ protected:
    std::string          m_strSSLKeyPwd;
 
    CURL*         m_pCurlSession;
-   int           m_iCurlTimeout;\n   long          m_iBufferSize = 0;\n   SocketOptFnCallback m_fnSocketOptCallback = nullptr;\n   std::string   m_strUsername;\n   std::string   m_strPassword;
+   int           m_iCurlTimeout;
+   long          m_iBufferSize = 0;
+   SocketOptFnCallback m_fnSocketOptCallback = nullptr;
+   std::string   m_strUsername;
+   std::string   m_strPassword;
 
    // Progress function
    ProgressFnCallback    m_fnProgressCallback;
