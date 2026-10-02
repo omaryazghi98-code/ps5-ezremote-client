@@ -5,6 +5,19 @@ project(ezremote_client)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDONT_HAVE_STRUPR -fstack-protector-all")
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -fpermissive")
 
+# Provide the custom CHTTPClient implementation to both the client and the
+# bundled ezRemote server. The original project linked this as -lhttpclient,
+# but that library is not present in the current PS5 SDK distribution.
+add_library(httpclient STATIC
+  source/httpclient/HTTPClient.cpp
+  source/httpclient/CurlHandle.cpp
+)
+target_include_directories(httpclient PUBLIC
+  ${PROJECT_SOURCE_DIR}/source
+  ${PROJECT_SOURCE_DIR}/source/httpclient
+)
+target_link_libraries(httpclient PUBLIC curl)
+
 add_subdirectory(ps5-ezremote-dpi)
 add_subdirectory(ps5-ezremote-server)
 
@@ -47,6 +60,7 @@ add_executable(ezremote_client.elf
   source/http/httplib.cpp
   source/server/http_server.cpp
   source/actions.cpp
+  source/direct_downloader.cpp
   source/config.cpp
   source/crypt.c
   source/dbglogger.c
@@ -67,6 +81,7 @@ add_executable(ezremote_client.elf
 target_compile_definitions(ezremote_client.elf PRIVATE CPPHTTPLIB_THREAD_POOL_COUNT=64)
 
 target_link_libraries(ezremote_client.elf
+  httpclient
   webp
   webpdemux
   SDL2
@@ -78,7 +93,6 @@ target_link_libraries(ezremote_client.elf
   webp
   jpeg
   iconv
-  httpclient
   zstd
   z
   psl
@@ -113,7 +127,7 @@ target_link_libraries(ezremote_client.elf
 )
 
 set(APPDIR "ezremote-client")
-set(APP_VERSION "2.14")
+set(APP_VERSION "2.15")
 
 add_custom_target(package
    DEPENDS ezremote-dpi.elf

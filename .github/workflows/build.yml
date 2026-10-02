@@ -1,0 +1,70 @@
+name: Build PS5 ezRemote Client
+
+on:
+  push:
+    branches:
+      - master
+      - "feat/**"
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
+
+      - name: Enable HTTPS for submodules
+        run: |
+          git config --global url."https://github.com/".insteadOf git@github.com:
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth 1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bash clang lld wget cmake meson pkg-config build-essential git unzip zip python3 python3-pyelftools
+
+      - name: Install PS5 Payload SDK + homebrew libraries
+        run: |
+          wget -q https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/v0.40.2/ps5-payload-dev.tar.gz -O /tmp/ps5-payload-dev.tar.gz
+          sudo tar -xzf /tmp/ps5-payload-dev.tar.gz -C /
+          test -d /opt/ps5-payload-sdk
+          echo "PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk" >> "$GITHUB_ENV"
+          echo "Installed PS5 homebrew libraries:"
+          find /opt/ps5-payload-sdk/target/user/homebrew/lib -maxdepth 1 -type f -name '*.a' -printf '%f\n' | sort | head -80
+
+      - name: Build missing lexbor dependency
+        run: |
+          git clone --depth 1 --branch v3.0.0 https://github.com/lexbor/lexbor.git /tmp/lexbor
+          /opt/ps5-payload-sdk/bin/prospero-cmake -S /tmp/lexbor -B /tmp/lexbor-build             -DCMAKE_BUILD_TYPE=Release             -DLEXBOR_BUILD_STATIC=YES             -DLEXBOR_INSTALL_HEADERS=YES             -DLEXBOR_BUILD_SHARED=NO             -DLEXBOR_BUILD_TESTS=NO             -DLEXBOR_BUILD_TESTS_CPP=NO             -DCMAKE_INSTALL_PREFIX=/user/homebrew
+          /usr/local/bin/cmake --build /tmp/lexbor-build -j2
+          sudo env DESTDIR=/opt/ps5-payload-sdk/target /usr/local/bin/cmake --install /tmp/lexbor-build
+          test -f /opt/ps5-payload-sdk/target/user/homebrew/include/lexbor/html/parser.h
+          test -f /opt/ps5-payload-sdk/target/user/homebrew/lib/liblexbor_static.a
+
+      - name: Configure
+        run: |
+          /opt/ps5-payload-sdk/bin/prospero-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          /opt/ps5-payload-sdk/bin/prospero-cmake --build build --target ezremote_client.elf -j2
+
+      - name: Package
+        run: |
+          /opt/ps5-payload-sdk/bin/prospero-cmake --build build --target package -j2
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5-ezremote-client-native-${{ github.sha }}
+          path: |
+            build/ezremote-client.zip
+            build/ezremote_client.elf
+            build/ps5-ezremote-server/ezremote-server.elf
+            build/ps5-ezremote-dpi/ezremote-dpi.elf
+          if-no-files-found: warn

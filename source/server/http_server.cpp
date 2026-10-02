@@ -4,6 +4,7 @@
 #include <server/range_parser.h>
 #include "http/httplib.h"
 #include "server/http_server.h"
+#include "direct_downloader.h"
 #include "clients/smbclient.h"
 #include "clients/sftpclient.h"
 #include "clients/ftpclient.h"
@@ -1259,105 +1260,70 @@ namespace HttpServer
 
         svr->Post("/__local__/download_url", [&](const Request &req, Response &res)
         {
-            std::string url;
-            std::string dest;
             const char *url_param;
             const char *dest_param;
             bool use_alldebrid = false;
             bool use_realdebrid = false;
 
             json_object *jobj = json_tokener_parse(req.body.c_str());
-            if (jobj != nullptr)
-            {
-                url_param = json_object_get_string(json_object_object_get(jobj, "url"));
-                dest_param = json_object_get_string(json_object_object_get(jobj, "dest"));
-                use_alldebrid  = json_object_get_boolean(json_object_object_get(jobj, "use_alldebrid"));
-                use_realdebrid = json_object_get_boolean(json_object_object_get(jobj, "use_realdebrid"));
-
-                if (url_param == nullptr || dest_param == nullptr)
-                {
-                    bad_request(res, "Required url, dest parameter missing");
-                    return;
-                }
-            }
-            else
+            if (jobj == nullptr)
             {
                 bad_request(res, "Invalid payload");
                 return;
             }
 
-            if ((use_alldebrid && strlen(alldebrid_api_key) == 0) || (use_realdebrid && strlen(realdebrid_api_key) == 0))
+            url_param = json_object_get_string(json_object_object_get(jobj, "url"));
+            dest_param = json_object_get_string(json_object_object_get(jobj, "dest"));
+            use_alldebrid = json_object_get_boolean(json_object_object_get(jobj, "use_alldebrid"));
+            use_realdebrid = json_object_get_boolean(json_object_object_get(jobj, "use_realdebrid"));
+
+            if (url_param == nullptr || dest_param == nullptr)
             {
-                failed(res, 200, lang_strings[STR_ALLDEBRID_API_KEY_MISSING_MSG]);
+                json_object_put(jobj);
+                bad_request(res, "Required url, dest parameter missing");
                 return;
             }
 
-            url = std::string(url_param);
-            FileHost *filehost = FileHost::getFileHost(url, use_alldebrid, use_realdebrid);
+            std::string url(url_param);
+            std::string destination(dest_param);
 
-            if (!filehost->IsValidUrl())
+            FileHost *filehost = FileHost::getFileHost(url, use_alldebrid, use_realdebrid);
+            if (filehost == nullptr || !filehost->IsValidUrl())
             {
+                if (filehost != nullptr)
+                    delete filehost;
+                json_object_put(jobj);
                 failed(res, 200, lang_strings[STR_INVALID_URL]);
                 return;
             }
 
             std::string download_url = filehost->GetDownloadUrl();
-            if (download_url.empty())
+            delete filehost;
+            json_object_put(jobj);
+
+            if (download_url.empty() ||
+                (download_url.find("http://") != 0 && download_url.find("https://") != 0))
             {
                 failed(res, 200, lang_strings[STR_CANT_EXTRACT_URL_MSG]);
                 return;
             }
-            delete(filehost);
 
-			size_t scheme_pos = download_url.find("://");
-			size_t root_pos = download_url.find("/", scheme_pos + 3);
-			std::string host = download_url.substr(0, root_pos);
-			std::string path = download_url.substr(root_pos);
-            uint64_t file_size;
-
-            RemoteClient *baseclient = new BaseClient();
-            baseclient->Connect(host, "", "");
-            baseclient->Size(path, &file_size);
-            delete baseclient;
-
-            uint64_t id = Util::GetTick();
-            json_object *params = json_object_new_object();
-            json_object_object_add(params, "type", json_object_new_int(CLIENT_TYPE_FILEHOST));
-            json_object_object_add(params, "url", json_object_new_string(host.c_str()));
-            json_object_object_add(params, "username", json_object_new_string(""));
-            json_object_object_add(params, "password", json_object_new_string(""));
-            json_object_object_add(params, "src_path", json_object_new_string(path.c_str()));
-            json_object_object_add(params, "dest_path", json_object_new_string(dest_param));
-            json_object_object_add(params, "size", json_object_new_uint64(file_size));
-            json_object_object_add(params, "id", json_object_new_uint64(id));
-
-            const char *params_str = json_object_to_json_string(params);
-
-            CHTTPClient::HttpResponse resp;
-            CHTTPClient::HeadersMap headers;
-            CHTTPClient tmp_client([](const std::string &log) {});
-            tmp_client.InitSession(true, CHTTPClient::SettingsFlag::NO_FLAGS);
-            tmp_client.SetCertificateFile(CACERT_FILE);
-            headers["Content-Type"] = "application/json";
-
-            std::string download_req_url = std::string("http://localhost:") + std::to_string(http_int_server_port) + "/download_url";
-            if (tmp_client.Post(download_req_url, headers, params_str, resp))
+            if (!DirectDownloader::Start(download_url, destination))
             {
-                if (HTTP_SUCCESS(resp.iCode))
-                {
-                    Util::RichNotify(id, "%s queued for download", path.c_str());
-                    success(res);
-                    return;
-                }
-                else
-                {
-                    Util::RichNotify(id, "Failed to queue %s for download in background", path.c_str());
-                    failed(res, 200, "Failed to download");
-                    return;
-                }
+                failed(res, 200, DirectDownloader::IsRunning()
+                    ? "A native direct download is already running"
+                    : "Could not start native direct download");
+                return;
             }
 
-            failed(res, 200, "Failed to download");
+            Util::RichNotify(Util::GetTick(), "Native direct download queued: %s",
+                             destination.c_str());
+            success(res);
+        });
+
+        svr->Get("/__local__/direct_download_state", [&](const Request & /*req*/, Response &res)
+        {
+            res.set_content(DirectDownloader::GetStateJson(), "application/json");
         });
 
         svr->Get("/stop", [&](const Request & /*req*/, Response & /*res*/)
