@@ -84,6 +84,7 @@ public:
       int iCode; // HTTP response code
       HeadersMap mapHeaders; // HTTP response headers fields
       HeadersMap mapHeadersLowercase; // lowercase-key view for case-insensitive access
+      HeadersMap cookies;
       std::string errMessage;
       std::string strBody; // HTTP response body
    };
@@ -111,6 +112,7 @@ public:
    void SetBasicAuth(const std::string& username, const std::string& password);
    void SetSocketOptFnCallback(SocketOptFnCallback fnCallback);
    void SetBufferSize(long size);
+   void SetCookie(const std::string& name, const std::string& value);
    /*inline*/ void SetProxy(const std::string& strProxy);
    inline void SetTimeout(const int& iTimeout) { m_iCurlTimeout = iTimeout; }
    inline void SetNoSignal(const bool& bNoSignal) { m_bNoSignal = bNoSignal; }
@@ -149,6 +151,10 @@ public:
    const bool UploadForm(const std::string& strURL,
                          const PostFormInfo& data,
                          long& lHTTPStatusCode);
+   const bool UploadForm(const std::string& strURL,
+                         const HeadersMap& Headers,
+                         const PostFormInfo& data,
+                         HttpResponse& Response);
 
    inline void AddHeader(const std::string& strHeader)
    {
@@ -252,6 +258,7 @@ protected:
    SocketOptFnCallback m_fnSocketOptCallback = nullptr;
    std::string   m_strUsername;
    std::string   m_strPassword;
+   HeadersMap   m_cookies;
 
    // Progress function
    ProgressFnCallback    m_fnProgressCallback;
