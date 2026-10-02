@@ -41,6 +41,8 @@ class CHTTPClient
 public:
    // Public definitions
    typedef std::function<int(void*, double, double, double, double)> ProgressFnCallback;
+   typedef int (*SocketOptFnCallback)(void*, int, uint32_t);
+   typedef size_t (*WriteFnCallback)(void*, size_t, size_t, void*);
    typedef std::function<void(const std::string&)>                   LogFnCallback;
    typedef std::unordered_map<std::string, std::string>              HeadersMap;
    typedef std::vector<char> ByteBuffer;
@@ -129,7 +131,7 @@ public:
                       std::string& strText,
                       long& lHTTPStatusCode);
 
-   const bool DownloadFile(const std::string& strLocalFile,
+   const bool DownloadFile(void* pUserData, const std::string& strURL, WriteFnCallback pWriteCallback, long& lHTTPStatusCode);\n\n   const bool DownloadFile(const std::string& strLocalFile,
                            const std::string& strURL,
                            long& lHTTPStatusCode);
 
@@ -230,7 +232,7 @@ protected:
    std::string          m_strSSLKeyPwd;
 
    CURL*         m_pCurlSession;
-   int           m_iCurlTimeout;
+   int           m_iCurlTimeout;\n   long          m_iBufferSize = 0;\n   SocketOptFnCallback m_fnSocketOptCallback = nullptr;\n   std::string   m_strUsername;\n   std::string   m_strPassword;
 
    // Progress function
    ProgressFnCallback    m_fnProgressCallback;
