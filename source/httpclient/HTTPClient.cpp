@@ -169,6 +169,12 @@ void CHTTPClient::SetBufferSize(long size)
    m_iBufferSize = size;
 }
 
+void CHTTPClient::SetCookie(const std::string& name, const std::string& value)
+{
+   if (!name.empty())
+      m_cookies[name] = value;
+}
+
 
 /**
  * @brief sets the HTTP Proxy address to tunnel the operation through it
@@ -238,6 +244,18 @@ const CURLcode CHTTPClient::Perform()
    CURLcode res = CURLE_OK;
 
    curl_easy_setopt(m_pCurlSession, CURLOPT_URL, m_strURL.c_str());
+
+   if (!m_cookies.empty())
+   {
+      std::string cookieHeader = "Cookie: ";
+      for (HeadersMap::const_iterator it = m_cookies.begin(); it != m_cookies.end(); ++it)
+      {
+         if (it != m_cookies.begin())
+            cookieHeader += "; ";
+         cookieHeader += it->first + "=" + it->second;
+      }
+      AddHeader(cookieHeader);
+   }
 
    if (m_pHeaderlist != nullptr)
       curl_easy_setopt(m_pCurlSession, CURLOPT_HTTPHEADER, m_pHeaderlist);
@@ -565,6 +583,21 @@ const bool CHTTPClient::DownloadFile(std::vector<unsigned char>& data, const std
  * @retval true   Successfully posted the header.
  * @retval false  The header couldn't be posted.
  */
+const bool CHTTPClient::UploadForm(const std::string& strURL,
+                                   const HeadersMap& Headers,
+                                   const PostFormInfo& data,
+                                   HttpResponse& Response)
+{
+   if (!InitRestRequest(strURL, Headers, Response))
+      return false;
+
+   curl_easy_setopt(m_pCurlSession, CURLOPT_POST, 1L);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_HTTPPOST, data.m_pFormPost);
+
+   CURLcode res = Perform();
+   return PostRestRequest(res, Response);
+}
+
 const bool CHTTPClient::UploadForm(const std::string& strURL,
                                    const PostFormInfo& data,
                                    long& lHTTPStatusCode)
@@ -1227,6 +1260,25 @@ size_t CHTTPClient::RestHeaderCallback(void* pCurlData, size_t usBlockCount, siz
       TrimSpaces(strValue);
       pServerResponse->mapHeaders[strKey] = strValue;
       std::string lowerKey = strKey;
+      std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(),
+                     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+      pServerResponse->mapHeadersLowercase[lowerKey] = strValue;
+
+      if (lowerKey == "set-cookie")
+      {
+         size_t semi = strValue.find(';');
+         std::string cookiePair = strValue.substr(0, semi);
+         size_t eq = cookiePair.find('=');
+         if (eq != std::string::npos)
+         {
+            std::string name = cookiePair.substr(0, eq);
+            std::string value = cookiePair.substr(eq + 1);
+            TrimSpaces(name);
+            TrimSpaces(value);
+            if (!name.empty())
+               pServerResponse->cookies[name] = value;
+         }
+      }
       std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(),
                      [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
       pServerResponse->mapHeadersLowercase[lowerKey] = strValue;
