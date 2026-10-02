@@ -39,8 +39,8 @@ jobs:
         run: |
           wget -q https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/v0.40.2/ps5-payload-dev.tar.gz -O /tmp/ps5-payload-dev.tar.gz
           sudo tar -xzf /tmp/ps5-payload-dev.tar.gz -C /
-          test -f /opt/ps5-payload-sdk/target/include/lexbor/html/parser.h
-          test -f /opt/ps5-payload-sdk/target/lib/liblexbor_static.a
+          test -f /opt/ps5-payload-sdk/target/user/homebrew/include/lexbor/html/parser.h
+          test -f /opt/ps5-payload-sdk/target/user/homebrew/lib/liblexbor_static.a
 
       - name: Configure
         run: |
