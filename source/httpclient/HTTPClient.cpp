@@ -149,6 +149,16 @@ void CHTTPClient::SetBasicAuth(const std::string& username, const std::string& p
    m_strPassword = password;
 }
 
+int CHTTPClient::SocketOptTrampoline(void* clientp, curl_socket_t curlfd, curlsocktype purpose)
+{
+   CHTTPClient* self = reinterpret_cast<CHTTPClient*>(clientp);
+   if (self == nullptr || self->m_fnSocketOptCallback == nullptr)
+      return CURL_SOCKOPT_OK;
+
+   return self->m_fnSocketOptCallback(nullptr, static_cast<int>(curlfd),
+                                      static_cast<uint32_t>(purpose));
+}
+
 void CHTTPClient::SetSocketOptFnCallback(SocketOptFnCallback fnCallback)
 {
    m_fnSocketOptCallback = fnCallback;
@@ -660,6 +670,42 @@ void CHTTPClient::PostFormInfo::AddFormContent(const std::string& strFieldName,
       CURLFORM_END);
 }
 
+std::string CHTTPClient::EncodeUrl(const std::string& strUrl)
+{
+   CURL* curl = curl_easy_init();
+   if (curl == nullptr)
+      return strUrl;
+
+   char* escaped = curl_easy_escape(curl, strUrl.c_str(), static_cast<int>(strUrl.size()));
+   if (escaped == nullptr)
+   {
+      curl_easy_cleanup(curl);
+      return strUrl;
+   }
+
+   std::string out(escaped);
+   curl_free(escaped);
+   curl_easy_cleanup(curl);
+
+   // Paths are hierarchical; preserve separators while escaping path bytes.
+   std::string from = "%2F";
+   size_t pos = 0;
+   while ((pos = out.find(from, pos)) != std::string::npos)
+   {
+      out.replace(pos, from.size(), "/");
+      pos += 1;
+   }
+   from = "%2f";
+   pos = 0;
+   while ((pos = out.find(from, pos)) != std::string::npos)
+   {
+      out.replace(pos, from.size(), "/");
+      pos += 1;
+   }
+
+   return out;
+}
+
 // REST REQUESTS
 
 /**
@@ -784,6 +830,53 @@ const bool CHTTPClient::Head(const std::string& strUrl,
 * @retval true   Successfully requested the URI.
 * @retval false  Encountered a problem.
 */
+const bool CHTTPClient::Get(const std::string& strUrl,
+   const CHTTPClient::HeadersMap& Headers,
+   CHTTPClient::HttpResponse& Response,
+   void* pWriteCallback,
+   void* pUserData)
+{
+   if (pWriteCallback == nullptr)
+   {
+      Response.errMessage = "null write callback";
+      return false;
+   }
+
+   if (strUrl.empty())
+      return false;
+
+   if (!m_pCurlSession)
+   {
+      Response.errMessage = LOG_ERROR_CURL_NOT_INIT_MSG;
+      return false;
+   }
+
+   curl_easy_reset(m_pCurlSession);
+   UpdateURL(strUrl);
+
+   curl_easy_setopt(m_pCurlSession, CURLOPT_WRITEFUNCTION,
+                    reinterpret_cast<WriteFnCallback>(pWriteCallback));
+   curl_easy_setopt(m_pCurlSession, CURLOPT_WRITEDATA, pUserData);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_HEADERFUNCTION, &CHTTPClient::RestHeaderCallback);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_HEADERDATA, &Response);
+
+   for (HeadersMap::const_iterator it = Headers.cbegin(); it != Headers.cend(); ++it)
+      AddHeader(it->first + ": " + it->second);
+
+   curl_easy_setopt(m_pCurlSession, CURLOPT_HTTPGET, 1L);
+
+   CURLcode res = Perform();
+   curl_easy_getinfo(m_pCurlSession, CURLINFO_RESPONSE_CODE, &Response.iCode);
+
+   if (res != CURLE_OK)
+   {
+      Response.errMessage = curl_easy_strerror(res);
+      return false;
+   }
+
+   return true;
+}
+
 const bool CHTTPClient::Get(const std::string& strUrl,
    const CHTTPClient::HeadersMap& Headers,
    CHTTPClient::HttpResponse& Response)
@@ -1131,6 +1224,10 @@ size_t CHTTPClient::RestHeaderCallback(void* pCurlData, size_t usBlockCount, siz
       std::string strValue = strHeader.substr(usSeperator + 1);
       TrimSpaces(strValue);
       pServerResponse->mapHeaders[strKey] = strValue;
+      std::string lowerKey = strKey;
+      std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(),
+                     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+      pServerResponse->mapHeadersLowercase[lowerKey] = strValue;
    }
 
    return (usBlockCount * usBlockSize);
