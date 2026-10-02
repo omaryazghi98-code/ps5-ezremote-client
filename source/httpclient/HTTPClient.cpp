@@ -22,6 +22,8 @@ std::string CHTTPClient::s_strCurlTraceLogDirectory;
 CHTTPClient::CHTTPClient(LogFnCallback Logger) :
    m_oLog(Logger),
    m_iCurlTimeout(0),
+   m_iBufferSize(0),
+   m_fnSocketOptCallback(nullptr),
    m_bHTTPS(false),
    m_bNoSignal(false),
    m_bProgressCallbackSet(false),
@@ -141,6 +143,23 @@ const bool CHTTPClient::CleanupSession()
    m_bProgressCallbackSet = true;
 }
 
+void CHTTPClient::SetBasicAuth(const std::string& username, const std::string& password)
+{
+   m_strUsername = username;
+   m_strPassword = password;
+}
+
+void CHTTPClient::SetSocketOptFnCallback(SocketOptFnCallback fnCallback)
+{
+   m_fnSocketOptCallback = fnCallback;
+}
+
+void CHTTPClient::SetBufferSize(long size)
+{
+   m_iBufferSize = size;
+}
+
+
 /**
  * @brief sets the HTTP Proxy address to tunnel the operation through it
  *
@@ -216,6 +235,22 @@ const CURLcode CHTTPClient::Perform()
    curl_easy_setopt(m_pCurlSession, CURLOPT_USERAGENT, CLIENT_USERAGENT);
    curl_easy_setopt(m_pCurlSession, CURLOPT_AUTOREFERER, 1L);
    curl_easy_setopt(m_pCurlSession, CURLOPT_FOLLOWLOCATION, 1L);
+
+   if (!m_strUsername.empty())
+   {
+      std::string credentials = m_strUsername + ":" + m_strPassword;
+      curl_easy_setopt(m_pCurlSession, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+      curl_easy_setopt(m_pCurlSession, CURLOPT_USERPWD, credentials.c_str());
+   }
+
+   if (m_iBufferSize > 0)
+      curl_easy_setopt(m_pCurlSession, CURLOPT_BUFFERSIZE, m_iBufferSize);
+
+   if (m_fnSocketOptCallback != nullptr)
+   {
+      curl_easy_setopt(m_pCurlSession, CURLOPT_SOCKOPTFUNCTION, m_fnSocketOptCallback);
+      curl_easy_setopt(m_pCurlSession, CURLOPT_SOCKOPTDATA, nullptr);
+   }
 
    if (m_iCurlTimeout > 0)
    {
@@ -353,6 +388,44 @@ const bool CHTTPClient::GetText(const std::string& strURL,
  * @retval true   Successfully downloaded the file.
  * @retval false  The file couldn't be downloaded. Check the log messages for more information.
  */
+const bool CHTTPClient::DownloadFile(void* pUserData,
+                                     const std::string& strURL,
+                                     WriteFnCallback pWriteCallback,
+                                     long& lHTTPStatusCode)
+{
+   if (strURL.empty() || pWriteCallback == nullptr)
+      return false;
+
+   if (!m_pCurlSession)
+   {
+      if (m_eSettingsFlags & ENABLE_LOG)
+         m_oLog(LOG_ERROR_CURL_NOT_INIT_MSG);
+
+      return false;
+   }
+
+   curl_easy_reset(m_pCurlSession);
+   UpdateURL(strURL);
+
+   curl_easy_setopt(m_pCurlSession, CURLOPT_HTTPGET, 1L);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_WRITEFUNCTION, pWriteCallback);
+   curl_easy_setopt(m_pCurlSession, CURLOPT_WRITEDATA, pUserData);
+
+   CURLcode res = Perform();
+   curl_easy_getinfo(m_pCurlSession, CURLINFO_RESPONSE_CODE, &lHTTPStatusCode);
+
+   if (res != CURLE_OK)
+   {
+      if (m_eSettingsFlags & ENABLE_LOG)
+         m_oLog(StringFormat(LOG_ERROR_CURL_DOWNLOAD_FAILURE_FORMAT,
+            "download callback", strURL.c_str(), res,
+            curl_easy_strerror(res), lHTTPStatusCode));
+      return false;
+   }
+
+   return true;
+}
+
 const bool CHTTPClient::DownloadFile(const std::string& strLocalFile,
                                      const std::string& strURL,
                                      long& lHTTPStatusCode)
