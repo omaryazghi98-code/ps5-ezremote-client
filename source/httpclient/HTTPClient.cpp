@@ -554,12 +554,7 @@ const bool CHTTPClient::DownloadFile(const std::string& strLocalFile,
    UpdateURL(strURL);
 
    std::ofstream ofsOutput;
-   ofsOutput.open(
-#ifdef LINUX
-       strLocalFile, // UTF-8
-#else
-       Utf8ToUtf16(strLocalFile),
-#endif
+   ofsOutput.open(strLocalFile,
        std::ofstream::out | std::ofstream::binary | std::ofstream::trunc);
 
    if (ofsOutput)
