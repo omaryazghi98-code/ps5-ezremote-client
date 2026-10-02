@@ -108,6 +108,9 @@ public:
 
    // Setters - Getters (for unit tests)
    /*inline*/ void SetProgressFnCallback(void* pOwner, const ProgressFnCallback& fnCallback);
+   void SetBasicAuth(const std::string& username, const std::string& password);
+   void SetSocketOptFnCallback(SocketOptFnCallback fnCallback);
+   void SetBufferSize(long size);
    /*inline*/ void SetProxy(const std::string& strProxy);
    inline void SetTimeout(const int& iTimeout) { m_iCurlTimeout = iTimeout; }
    inline void SetNoSignal(const bool& bNoSignal) { m_bNoSignal = bNoSignal; }
@@ -135,7 +138,7 @@ public:
                       std::string& strText,
                       long& lHTTPStatusCode);
 
-   const bool DownloadFile(void* pUserData, const std::string& strURL, WriteFnCallback pWriteCallback, long& lHTTPStatusCode);
+   const bool DownloadFile(void* pUserData, const std::string& strURL, void* pWriteCallback, long& lHTTPStatusCode);
 
    const bool DownloadFile(const std::string& strLocalFile,
                            const std::string& strURL,
